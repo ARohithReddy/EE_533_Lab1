@@ -5,11 +5,24 @@
 #include<stdlib.h>
 #include<string.h>
 #include<unistd.h>
+#include<signal.h>
  
  
 void error (char* msg) {
   perror(msg);
   exit(1);
+}
+
+void dostuff(int sockfd) {
+  char buffer[256];
+  int n;
+  bzero(buffer, 256);
+  n = read(sockfd, buffer, 255);
+  if (n<0) error("ERROR reading from socket");
+  printf("Here is the message : %s", buffer);
+ 
+  n = write(sockfd, "I got yout message", 18);
+  if (n <0) error("ERROR writing to socket");
 }
  
 int main(int argc, char* argv []) {
@@ -22,7 +35,7 @@ int main(int argc, char* argv []) {
     fprintf(stderr,"ERROR, no port provided");
     exit(1);
   }
-  
+  signal(SIGCHLD,SIG_IGN);
   sockfd = socket(AF_INET, SOCK_STREAM,0);
   if (sockfd <0) {
     error("ERROR opening socket");
@@ -39,18 +52,33 @@ int main(int argc, char* argv []) {
   listen(sockfd, 5);
  
   clilen = sizeof(cli_addr);
- 
+  while (1) {
   newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
-  if (newsockfd <0)
-    error("ERROR on accpet");
+  if (newsockfd < 0)
+  error("ERROR on accept");
+  pid = fork();
+  if (pid < 0)
+  error("ERROR on fork");
+  if (pid == 0) {
+  close(sockfd);
+  dostuff(newsockfd);
+  exit(0);
+  }
+  else
+    close(newsockfd);
+
+  }
+  //newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
+  //if (newsockfd <0)
+  //  error("ERROR on accpet");
+  // 
+  //bzero(buffer, 256);
+  //n = read(newsockfd, buffer, 255);
+  //if (n<0) error("ERROR reading from socket");
+  //printf("Here is the message : %s", buffer);
  
-  bzero(buffer, 256);
-  n = read(newsockfd, buffer, 255);
-  if (n<0) error("ERROR reading from socket");
-  printf("Here is the message : %s", buffer);
- 
-  n = write(newsockfd, "I got yout message", 18);
-  if (n <0) error("ERROR writing to socket");
+  //n = write(newsockfd, "I got yout message", 18);
+  //if (n <0) error("ERROR writing to socket");
  
  
   return 0;
